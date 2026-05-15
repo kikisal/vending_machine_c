@@ -72,7 +72,7 @@ VM_API void         vm_slot_update_product_price(vm_t* vm, size_t prod_id);
 VM_API void         vm_product_set_margin(vm_t* vm, const char* display_name, float margin);
 VM_API void         vm_product_set_unitcost(vm_t* vm, const char* display_name, float cost);
 VM_API int          vm_load_slots_from_memory(vm_t* vm, vm_slot_t* slots, size_t count);
-
+VM_API void         vm_bake_slots(vm_t* vm, const char* fp);
 
 static void         vm__fwrite_str(const char* str, FILE* fh);
 
