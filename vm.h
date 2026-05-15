@@ -22,7 +22,7 @@
 
 
 #define ARR_SIZE(arr) (sizeof((arr)) / sizeof((arr)[0]))
-#define SLOT_PTR(slots) (vm_slot_t*) (slots);
+// #define SLOT_PTR(slots) (vm_slot_t*) (slots);
 
 typedef int vm_buy_err_t;
 
@@ -43,17 +43,27 @@ typedef struct vm_product_st {
     float price;
 } vm_slot_t;
 
-extern void         vm_init_rand();
-extern void         vm_fill();
-extern void         vm_print_slots(int limit);
-extern vm_buy_err_t vm_buy(int slot_idx, float cash, float* change);
+
+typedef struct vm_state_st {
+    vm_slot_t* slot;
+    int        slot_count;
+    int        rows;
+    int        cols;
+
+    int        max_cell_qnt;
+    float      profit_margin;
+} vm_state_t;
+
+
+extern vm_state_t   vm_init_rand(int rows, int cols, int max_cell_qnt, float profit_margin);
+extern void         vm_fill(vm_state_t* vm);
+extern void         vm_print_slots(vm_state_t* vm, int limit);
+extern vm_buy_err_t vm_buy(vm_state_t* vm, int slot_idx, float cash, float* change);
 extern const char*  vm_buy_result(vm_buy_err_t err);
-extern void         vm_restock(int slot_idx);
-extern void         vm_slot_set_qnt(int slot_idx, int qnt);
+extern void         vm_restock(vm_state_t* vm, int slot_idx);
+extern void         vm_slot_set_qnt(vm_state_t* vm, int slot_idx, int qnt);
 
 #ifdef VM_IMPLEMENTATION
-
-static vm_slot_t vm_slot[VM_ROWS][VM_COLS];
 
 static product_t products[] = {
     {
@@ -74,25 +84,26 @@ static product_t products[] = {
     },
 };
 
-void vm_fill() {
-    for (int i = 0; i < VM_ROWS; ++i) {
-        for (int j = 0; j < VM_COLS; ++j) {
-            float margin = PROFIT_MARGIN;
+void vm_fill(vm_state_t* vm) {
+    for (int i = 0; i < vm->rows; ++i) {
+        for (int j = 0; j < vm->cols; ++j) {
+            float margin = vm->profit_margin;
             int p_idx = rand() % ARR_SIZE(products);
-            vm_slot[i][j].prod_id = p_idx;
-            vm_slot[i][j].qnt     = rand() % (MAX_CELL_QNT) + 1;
-            vm_slot[i][j].price   = (products[p_idx].unit_cost / 100.0f) * (1 + margin);
+            vm->slot[i*vm->cols + j].prod_id = p_idx;
+            vm->slot[i*vm->cols + j].qnt     = rand() % (vm->max_cell_qnt) + 1;
+            vm->slot[i*vm->cols + j].price   = (products[p_idx].unit_cost / 100.0f) * (1 + margin);
         }
     }
 }
 
-void vm_print_slots(int limit) {
-    if (limit < 0 || limit > VM_ROWS * VM_COLS)
-        limit = VM_ROWS * VM_COLS;
+void vm_print_slots(vm_state_t* vm, int limit) {
+    if (limit < 0 || limit > vm->slot_count)
+        limit = vm->slot_count;
     
     for (int i = 0; i < limit; ++i) {
-        vm_slot_t* p = SLOT_PTR(vm_slot);
-        if ((i % VM_COLS) == 0 && i > 0) {
+        vm_slot_t* p = vm->slot;
+
+        if ((i % vm->cols) == 0 && i > 0) {
             printf("\n");
         }
 
@@ -106,11 +117,11 @@ void vm_print_slots(int limit) {
     printf("\n");
 }
 
-vm_buy_err_t vm_buy(int slot_idx, float cash, float* change) {
-    if (slot_idx < 0 || slot_idx >= VM_ROWS * VM_COLS)
+vm_buy_err_t vm_buy(vm_state_t* vm, int slot_idx, float cash, float* change) {
+    if (slot_idx < 0 || slot_idx >= vm->slot_count)
         return VM_BUY_INVALID_SLOT; // invalid slot
 
-    vm_slot_t* slots = SLOT_PTR(vm_slot);
+    vm_slot_t* slots = vm->slot;
 
     if (slots[slot_idx].qnt <= 0)
         return VM_BUY_EMPTY_SLOT; // empty slot
@@ -142,26 +153,38 @@ const char* vm_buy_result(vm_buy_err_t err) {
     }
 }
 
-void vm_init_rand() {
+vm_state_t vm_init_rand(int rows, int cols, int max_cell_qnt, float profit_margin) {
+    vm_slot_t* slots = malloc(sizeof(vm_slot_t) * rows * cols);
+    vm_state_t vm;
+
+    vm.rows          = rows;
+    vm.cols          = cols;
+    vm.slot_count    = rows*cols;
+    vm.slot          = slots;
+    vm.max_cell_qnt  =  max_cell_qnt;
+    vm.profit_margin = profit_margin;
+    
     srand(time(NULL));
-    vm_fill();
+    vm_fill(&vm);
+    return vm;
 }
 
-void vm_restock(int slot_idx) {
-    vm_slot_t* slots    = SLOT_PTR(vm_slot);
-    slots[slot_idx].qnt = MAX_CELL_QNT;
+void vm_restock(vm_state_t* vm, int slot_idx) {
+    if (!vm) return;
+    vm->slot[slot_idx].qnt = vm->max_cell_qnt;
 }
 
-void vm_slot_set_qnt(int slot_idx, int qnt) {
-    vm_slot_t* slots    = SLOT_PTR(vm_slot);
-    slots[slot_idx].qnt = qnt;
+void vm_slot_set_qnt(vm_state_t* vm, int slot_idx, int qnt) {
+    if (!vm) return;
+
+    vm->slot[slot_idx].qnt = qnt;
 
     // clamping.
-    if (slots[slot_idx].qnt < 0) {
-        slots[slot_idx].qnt = 0;
+    if (vm->slot[slot_idx].qnt < 0) {
+        vm->slot[slot_idx].qnt = 0;
     } else {
-        if (slots[slot_idx].qnt > MAX_CELL_QNT)
-            slots[slot_idx].qnt = MAX_CELL_QNT;
+        if (vm->slot[slot_idx].qnt > vm->max_cell_qnt)
+            vm->slot[slot_idx].qnt = vm->max_cell_qnt;
     }
 }
 
