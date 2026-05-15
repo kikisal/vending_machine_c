@@ -7,7 +7,7 @@
 #define PLATFORM_OS       1
 #define PLATFORM_EMBEDDED 2
 
-#include "./config.h"
+#include "./vm_config.h"
 #include <assert.h>
 
 #ifdef VM_IMPLEMENTATION
