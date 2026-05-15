@@ -3,5 +3,5 @@
 // DO NOT TOUCH
 #define PLATFORM_OS       1
 #define PLATFORM_EMBEDDED 2
-
+#define STR_TMP_BUFF_SIZE 1024 
 #define PLATFORM PLATFORM_OS

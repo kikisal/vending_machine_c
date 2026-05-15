@@ -9,8 +9,9 @@ int main() {
         g_StockProducts,
         ARR_SIZE(g_StockProducts)
     );
-    
-    vm_print_slots(&vm, -1);
+
+
+    // vm_print_slots(&vm, -1);
     vm_free(&vm);
     return 0;
 }

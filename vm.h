@@ -4,14 +4,15 @@
 #pragma once
 
 #include "./vm_config.h"
-#include <stdbool.h>
-#include <assert.h>
 
 #ifdef VM_IMPLEMENTATION
 #   if PLATFORM == PLATFORM_OS
 #       include <stdio.h>
 #       include <stdlib.h>
 #       include <time.h>
+#       include <stdbool.h>
+#       include <assert.h>
+#       include <string.h>
 #   else
 #        error "PLATFORM NOT IMPLEMENTED!"
 #   endif
@@ -37,7 +38,7 @@ typedef struct product_st {
     float profit_margin;
 } product_t;
 
-typedef struct vm_product_st {
+typedef struct vm_slot_st {
     int prod_id;
     int qnt;
     float price;
@@ -55,16 +56,26 @@ typedef struct vm_st {
     bool       is_static;
 } vm_t;
 
+#define VM_API extern
 
-extern vm_t         vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count);
-extern void         vm_fill_rand(vm_t* vm);
-extern vm_t         vm_init(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count, vm_slot_t* static_storage);
-extern void         vm_print_slots(vm_t* vm, int limit);
-extern vm_buy_err_t vm_buy(vm_t* vm, int slot_idx, float cash, float* change);
-extern const char*  vm_buy_result(vm_buy_err_t err);
-extern void         vm_restock(vm_t* vm, int slot_idx);
-extern void         vm_slot_set_qnt(vm_t* vm, int slot_idx, int qnt);
-extern void         vm_free(vm_t* vm);
+VM_API vm_t         vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count);
+VM_API void         vm_fill_rand(vm_t* vm);
+VM_API vm_t         vm_init(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count, vm_slot_t* static_storage);
+VM_API void         vm_print_slots(vm_t* vm, int limit);
+VM_API vm_buy_err_t vm_buy(vm_t* vm, int slot_idx, float cash, float* change);
+VM_API const char*  vm_buy_result(vm_buy_err_t err);
+VM_API void         vm_restock(vm_t* vm, int slot_idx);
+VM_API void         vm_slot_set_qnt(vm_t* vm, int slot_idx, int qnt);
+VM_API void         vm_free(vm_t* vm);
+VM_API size_t       vm_indexof_product(vm_t* vm, const char* display_name);
+VM_API void         vm_slot_update_product_price(vm_t* vm, size_t prod_id);
+VM_API void         vm_product_set_margin(vm_t* vm, const char* display_name, float margin);
+VM_API void         vm_product_set_unitcost(vm_t* vm, const char* display_name, float cost);
+VM_API int          vm_load_slots_from_memory(vm_t* vm, vm_slot_t* slots, size_t count);
+
+
+static void         vm__fwrite_str(const char* str, FILE* fh);
+
 
 #ifdef VM_IMPLEMENTATION
 
@@ -208,6 +219,71 @@ void vm_free(vm_t* vm) {
     if (vm->slot && !vm->is_static) 
         free(vm->slot);
     *vm = (vm_t){0};
+}
+
+size_t vm_indexof_product(vm_t* vm, const char* display_name) {
+    size_t idx = -1;
+    for (int i = 0; i < vm->product_count; ++i) {
+        if (strncmp(vm->products[i].display_name, display_name, strlen(display_name)) == 0) {
+            idx = i;
+            break;
+        }
+    }
+
+    return idx;
+}
+
+void vm_slot_update_product_price(vm_t* vm, size_t prod_id) {
+    for (int i = 0; i < vm->slot_count; ++i) {
+        if (vm->slot[i].prod_id == prod_id) {
+            product_t p = vm->products[prod_id];
+            vm->slot[i].price   = (p.unit_cost / 100.0f) * (1 + p.profit_margin);
+        }
+    }
+}
+
+void vm_product_set_unitcost(vm_t* vm, const char* display_name, float cost) {
+    size_t prd_idx = vm_indexof_product(vm, display_name);
+    if (prd_idx < 0) return;
+
+    vm->products[prd_idx].unit_cost = cost;
+    vm_slot_update_product_price(vm, prd_idx);
+}
+
+void vm_product_set_margin(vm_t* vm, const char* display_name, float margin) {
+    size_t prd_idx = vm_indexof_product(vm, display_name);
+    if (prd_idx < 0) return;
+
+    vm->products[prd_idx].profit_margin = margin;
+    vm_slot_update_product_price(vm, prd_idx);
+}
+
+int vm_load_slots_from_memory(vm_t* vm, vm_slot_t* slots, size_t count) {
+    if (vm->slot_count != count) return -1;
+
+    memcpy(vm->slot, slots, count * sizeof(slots[0]));
+    return 0;
+}
+
+static void vm__fwrite_str(const char* str, FILE* fh) {
+    if (!fh) return;
+    fwrite(str, 1, strlen(str), fh);
+}
+
+void vm_bake_slots(vm_t* vm, const char* fp) {
+    FILE* fh = fopen(fp, "w");
+    if (!fh) return;
+    char tmp_buff[STR_TMP_BUFF_SIZE];
+
+    vm__fwrite_str("#pragma once\n\n", fh);
+    vm__fwrite_str("static vm_slot_t g_Slots[VM_ROWS*VM_COLS] = {\n", fh);
+    for (int i = 0; i < vm->slot_count; ++i) {
+        vm_slot_t slot = vm->slot[i];
+        snprintf(tmp_buff, STR_TMP_BUFF_SIZE, "\t{.prod_id = %2d, .qnt = %2d, .price = %.2f},\n", slot.prod_id, slot.qnt, slot.price);
+        vm__fwrite_str(tmp_buff, fh);
+    }
+    vm__fwrite_str("};\n", fh);
+    fclose(fh);
 }
 
 #endif // VM_IMPLEMENTATION

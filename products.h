@@ -1,5 +1,29 @@
 #pragma once
 
+typedef enum prod_id_enum {
+    STOCK_PRODUCT_BAD_DOG,
+    STOCK_PRODUCT_COCA_COLA,
+    STOCK_PRODUCT_PEPSI,
+    STOCK_PRODUCT_SPRITE,
+    STOCK_PRODUCT_FANTA_ORANGE,
+    STOCK_PRODUCT_MOUNTAIN_DEW,
+    STOCK_PRODUCT_DR_PEPPER,
+    STOCK_PRODUCT_RED_BULL,
+    STOCK_PRODUCT_MONSTER_ENERGY,
+    STOCK_PRODUCT_WATER_BOTTLE,
+    STOCK_PRODUCT_ICED_TEA,
+    STOCK_PRODUCT_ORANGE_JUICE,
+    STOCK_PRODUCT_CHOCOLATE_BAR,
+    STOCK_PRODUCT_POTATO_CHIPS,
+    STOCK_PRODUCT_GUMMY_BEARS,
+    STOCK_PRODUCT_COOKIES,
+    STOCK_PRODUCT_PROTEIN_BAR,
+    STOCK_PRODUCT_TRAIL_MIX,
+    STOCK_PRODUCT_CHEWING_GUM,
+    STOCK_PRODUCT_MINTS,
+    __stock_product_count
+} prod_id;
+
 static product_t g_StockProducts[] = {
     { .name = "Bad Dog",        .display_name = "bad_dog",        .unit_cost = 85.0f, .profit_margin = .50f },
     { .name = "Coca Cola",      .display_name = "coca_cola",      .unit_cost = 65.0f, .profit_margin = .50f },
@@ -22,3 +46,7 @@ static product_t g_StockProducts[] = {
     { .name = "Chewing Gum",    .display_name = "chewing_gum",    .unit_cost = 18.0f, .profit_margin = .50f },
     { .name = "Mints",          .display_name = "mints",          .unit_cost = 15.0f, .profit_margin = .50f }
 };
+
+static_assert(sizeof(g_StockProducts) / sizeof(g_StockProducts[0]) == __stock_product_count);
+
+#include "./slots.h"
