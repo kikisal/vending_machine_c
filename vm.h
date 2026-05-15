@@ -31,7 +31,9 @@ typedef int vm_buy_err_t;
 
 typedef struct product_st {
     const char* name;
+    const char* display_name;
     float unit_cost; // in cents
+    float profit_margin;
 } product_t;
 
 typedef struct vm_product_st {
@@ -40,32 +42,32 @@ typedef struct vm_product_st {
     float price;
 } vm_slot_t;
 
-
-typedef struct vm_state_st {
+typedef struct vm_st {
     vm_slot_t* slot;
     int        slot_count;
     int        rows;
     int        cols;
+    product_t* products;
+    size_t     product_count;
 
     int        max_cell_qnt;
-    float      profit_margin;
     bool       is_static;
-} vm_state_t;
+} vm_t;
 
 
-extern vm_state_t   vm_init_rand(int rows, int cols, int max_cell_qnt, float profit_margin);
-extern void         vm_fill_rand(vm_state_t* vm);
-extern vm_state_t   vm_init(int rows, int cols, int max_cell_qnt, vm_slot_t* static_storage);
-extern void         vm_print_slots(vm_state_t* vm, int limit);
-extern vm_buy_err_t vm_buy(vm_state_t* vm, int slot_idx, float cash, float* change);
+extern vm_t         vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count);
+extern void         vm_fill_rand(vm_t* vm);
+extern vm_t         vm_init(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count, vm_slot_t* static_storage);
+extern void         vm_print_slots(vm_t* vm, int limit);
+extern vm_buy_err_t vm_buy(vm_t* vm, int slot_idx, float cash, float* change);
 extern const char*  vm_buy_result(vm_buy_err_t err);
-extern void         vm_restock(vm_state_t* vm, int slot_idx);
-extern void         vm_slot_set_qnt(vm_state_t* vm, int slot_idx, int qnt);
-extern void         vm_free(vm_state_t* vm);
+extern void         vm_restock(vm_t* vm, int slot_idx);
+extern void         vm_slot_set_qnt(vm_t* vm, int slot_idx, int qnt);
+extern void         vm_free(vm_t* vm);
 
 #ifdef VM_IMPLEMENTATION
 
-static product_t products[] = {
+static product_t g_DefaultProducts[] = {
     {
         .name      = "Bad Dog",
         .unit_cost = 50.0f,
@@ -84,19 +86,19 @@ static product_t products[] = {
     },
 };
 
-void vm_fill_rand(vm_state_t* vm) {
+void vm_fill_rand(vm_t* vm) {
     for (int i = 0; i < vm->rows; ++i) {
         for (int j = 0; j < vm->cols; ++j) {
-            float margin = vm->profit_margin;
-            int p_idx = rand() % ARR_SIZE(products);
+            int p_idx = rand() % vm->product_count;
+            float margin = vm->products[p_idx].profit_margin;
             vm->slot[i*vm->cols + j].prod_id = p_idx;
             vm->slot[i*vm->cols + j].qnt     = rand() % (vm->max_cell_qnt) + 1;
-            vm->slot[i*vm->cols + j].price   = (products[p_idx].unit_cost / 100.0f) * (1 + margin);
+            vm->slot[i*vm->cols + j].price   = (vm->products[p_idx].unit_cost / 100.0f) * (1 + margin);
         }
     }
 }
 
-void vm_print_slots(vm_state_t* vm, int limit) {
+void vm_print_slots(vm_t* vm, int limit) {
     if (limit < 0 || limit > vm->slot_count)
         limit = vm->slot_count;
     
@@ -108,16 +110,16 @@ void vm_print_slots(vm_state_t* vm, int limit) {
         }
 
         #ifdef PRINT_NAMES
-            printf("(%d, %d, %.2f, \"%s\") ", p[i].prod_id, p[i].qnt, p[i].price, products[p[i].prod_id].name);
+            printf("(%02d, %2d, %2d, %.2f, \"%s\") ", i, p[i].prod_id, p[i].qnt, p[i].price, vm->products[p[i].prod_id].name);
         #else
-            printf("(%d, %d, %.2f) ", p[i].prod_id, p[i].qnt, p[i].price);
+            printf("(%02d, %02d, %02d, %0.2f) ", i, p[i].prod_id, p[i].qnt, p[i].price);
         #endif //  PRINT_NAMES
     }
 
     printf("\n");
 }
 
-vm_buy_err_t vm_buy(vm_state_t* vm, int slot_idx, float cash, float* change) {
+vm_buy_err_t vm_buy(vm_t* vm, int slot_idx, float cash, float* change) {
     if (slot_idx < 0 || slot_idx >= vm->slot_count)
         return VM_BUY_INVALID_SLOT; // invalid slot
 
@@ -153,12 +155,14 @@ const char* vm_buy_result(vm_buy_err_t err) {
     }
 }
 
-vm_state_t vm_init(int rows, int cols, int max_cell_qnt, vm_slot_t* static_storage) {
-    vm_state_t vm = {0};
-    vm.rows         = rows;
-    vm.cols         = cols;
-    vm.max_cell_qnt = max_cell_qnt;
-    vm.slot_count   = rows * cols;
+vm_t vm_init(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count, vm_slot_t* static_storage) {
+    vm_t vm = {0};
+    vm.rows          = rows;
+    vm.cols          = cols;
+    vm.max_cell_qnt  = max_cell_qnt;
+    vm.slot_count    = rows * cols;
+    vm.products      = products != NULL ? products : g_DefaultProducts;
+    vm.product_count = products != NULL ? product_count : ARR_SIZE(g_DefaultProducts);
 #if PLATFORM == PLATFORM_OS
     (void) static_storage;
     vm.slot = malloc(vm.slot_count * sizeof(vm.slot[0]));
@@ -171,28 +175,19 @@ vm_state_t vm_init(int rows, int cols, int max_cell_qnt, vm_slot_t* static_stora
     return vm;
 }
 
-vm_state_t vm_init_rand(int rows, int cols, int max_cell_qnt, float profit_margin) {
-    vm_slot_t* slots = malloc(sizeof(vm_slot_t) * rows * cols);
-    vm_state_t vm;
-
-    vm.rows          = rows;
-    vm.cols          = cols;
-    vm.slot_count    = rows*cols;
-    vm.slot          = slots;
-    vm.max_cell_qnt  =  max_cell_qnt;
-    vm.profit_margin = profit_margin;
-    
+vm_t vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count) {
+    vm_t vm = vm_init(rows, cols, max_cell_qnt, products, product_count, NULL);
     srand(time(NULL));
     vm_fill_rand(&vm);
     return vm;
 }
 
-void vm_restock(vm_state_t* vm, int slot_idx) {
+void vm_restock(vm_t* vm, int slot_idx) {
     if (!vm) return;
     vm->slot[slot_idx].qnt = vm->max_cell_qnt;
 }
 
-void vm_slot_set_qnt(vm_state_t* vm, int slot_idx, int qnt) {
+void vm_slot_set_qnt(vm_t* vm, int slot_idx, int qnt) {
     if (!vm) return;
 
     vm->slot[slot_idx].qnt = qnt;
@@ -206,12 +201,12 @@ void vm_slot_set_qnt(vm_state_t* vm, int slot_idx, int qnt) {
     }
 }
 
-void vm_free(vm_state_t* vm) {
+void vm_free(vm_t* vm) {
     if (!vm) return;
     
     if (vm->slot && !vm->is_static) 
         free(vm->slot);
-    *vm = (vm_state_t){0};
+    *vm = (vm_t){0};
 }
 
 #endif // VM_IMPLEMENTATION

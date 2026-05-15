@@ -1,0 +1,24 @@
+#pragma once
+
+static product_t g_StockProducts[] = {
+    { .name = "Bad Dog",        .display_name = "bad_dog",        .unit_cost = 85.0f, .profit_margin = .50f },
+    { .name = "Coca Cola",      .display_name = "coca_cola",      .unit_cost = 65.0f, .profit_margin = .50f },
+    { .name = "Pepsi",          .display_name = "pepsi",          .unit_cost = 63.0f, .profit_margin = .50f },
+    { .name = "Sprite",         .display_name = "sprite",         .unit_cost = 60.0f, .profit_margin = .50f },
+    { .name = "Fanta Orange",   .display_name = "fanta_orange",   .unit_cost = 62.0f, .profit_margin = .50f },
+    { .name = "Mountain Dew",   .display_name = "mountain_dew",   .unit_cost = 68.0f, .profit_margin = .50f },
+    { .name = "Dr Pepper",      .display_name = "dr_pepper",      .unit_cost = 72.0f, .profit_margin = .50f },
+    { .name = "Red Bull",       .display_name = "red_bull",       .unit_cost = 45.0f, .profit_margin = .50f },
+    { .name = "Monster Energy", .display_name = "monster_energy", .unit_cost = 35.0f, .profit_margin = .50f },
+    { .name = "Water Bottle",   .display_name = "water_bottle",   .unit_cost = 30.0f, .profit_margin = .50f },
+    { .name = "Iced Tea",       .display_name = "iced_tea",       .unit_cost = 55.0f, .profit_margin = .50f },
+    { .name = "Orange Juice",   .display_name = "orange_juice",   .unit_cost = 80.0f, .profit_margin = .50f },
+    { .name = "Chocolate Bar",  .display_name = "chocolate_bar",  .unit_cost = 50.0f, .profit_margin = .50f },
+    { .name = "Potato Chips",   .display_name = "potato_chips",   .unit_cost = 48.0f, .profit_margin = .50f },
+    { .name = "Gummy Bears",    .display_name = "gummy_bears",    .unit_cost = 40.0f, .profit_margin = .50f },
+    { .name = "Cookies",        .display_name = "cookies",        .unit_cost = 52.0f, .profit_margin = .50f },
+    { .name = "Protein Bar",    .display_name = "protein_bar",    .unit_cost = 10.0f, .profit_margin = .50f },
+    { .name = "Trail Mix",      .display_name = "trail_mix",      .unit_cost = 95.0f, .profit_margin = .50f },
+    { .name = "Chewing Gum",    .display_name = "chewing_gum",    .unit_cost = 18.0f, .profit_margin = .50f },
+    { .name = "Mints",          .display_name = "mints",          .unit_cost = 15.0f, .profit_margin = .50f }
+};
