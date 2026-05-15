@@ -4,7 +4,7 @@
 
 int main() {
     vm_t vm = vm_init_rand(
-        VM_ROWS, VM_COLS, 
+        VM_ROWS, VM_COLS,
         VM_MAX_CELL_QNT,
         g_StockProducts,
         ARR_SIZE(g_StockProducts)

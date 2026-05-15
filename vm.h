@@ -31,6 +31,7 @@ typedef int vm_buy_err_t;
 
 typedef struct product_st {
     const char* name;
+    // used by the graphics library to fetch texture
     const char* display_name;
     float unit_cost; // in cents
     float profit_margin;
