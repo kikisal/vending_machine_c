@@ -3,6 +3,6 @@
 
 int main() {
     vm_init_rand();
-    vm_print_slots(4);
+    vm_print_slots(-1);
     return 0;
 }

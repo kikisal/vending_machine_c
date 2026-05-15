@@ -87,7 +87,10 @@ void vm_fill() {
 }
 
 void vm_print_slots(int limit) {
-    for (int i = 0; i < VM_ROWS * VM_COLS && i < limit; ++i) {
+    if (limit < 0 || limit > VM_ROWS * VM_COLS)
+        limit = VM_ROWS * VM_COLS;
+    
+    for (int i = 0; i < limit; ++i) {
         vm_slot_t* p = SLOT_PTR(vm_slot);
         if ((i % VM_COLS) == 0 && i > 0) {
             printf("\n");
