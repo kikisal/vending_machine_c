@@ -3,11 +3,8 @@
 
 #pragma once
 
-// DO NOT TOUCH
-#define PLATFORM_OS       1
-#define PLATFORM_EMBEDDED 2
-
 #include "./vm_config.h"
+#include <stdbool.h>
 #include <assert.h>
 
 #ifdef VM_IMPLEMENTATION
@@ -52,16 +49,19 @@ typedef struct vm_state_st {
 
     int        max_cell_qnt;
     float      profit_margin;
+    bool       is_static;
 } vm_state_t;
 
 
 extern vm_state_t   vm_init_rand(int rows, int cols, int max_cell_qnt, float profit_margin);
-extern void         vm_fill(vm_state_t* vm);
+extern void         vm_fill_rand(vm_state_t* vm);
+extern vm_state_t   vm_init(int rows, int cols, int max_cell_qnt, vm_slot_t* static_storage);
 extern void         vm_print_slots(vm_state_t* vm, int limit);
 extern vm_buy_err_t vm_buy(vm_state_t* vm, int slot_idx, float cash, float* change);
 extern const char*  vm_buy_result(vm_buy_err_t err);
 extern void         vm_restock(vm_state_t* vm, int slot_idx);
 extern void         vm_slot_set_qnt(vm_state_t* vm, int slot_idx, int qnt);
+extern void         vm_free(vm_state_t* vm);
 
 #ifdef VM_IMPLEMENTATION
 
@@ -84,7 +84,7 @@ static product_t products[] = {
     },
 };
 
-void vm_fill(vm_state_t* vm) {
+void vm_fill_rand(vm_state_t* vm) {
     for (int i = 0; i < vm->rows; ++i) {
         for (int j = 0; j < vm->cols; ++j) {
             float margin = vm->profit_margin;
@@ -153,6 +153,24 @@ const char* vm_buy_result(vm_buy_err_t err) {
     }
 }
 
+vm_state_t vm_init(int rows, int cols, int max_cell_qnt, vm_slot_t* static_storage) {
+    vm_state_t vm = {0};
+    vm.rows         = rows;
+    vm.cols         = cols;
+    vm.max_cell_qnt = max_cell_qnt;
+    vm.slot_count   = rows * cols;
+#if PLATFORM == PLATFORM_OS
+    (void) static_storage;
+    vm.slot = malloc(vm.slot_count * sizeof(vm.slot[0]));
+#elif PLATFORM == PLATFORM_EMBEDDED
+    vm.slot      = static_storage;
+    vm.is_static = true;
+#else
+#   error "Platform not implemented"
+#endif
+    return vm;
+}
+
 vm_state_t vm_init_rand(int rows, int cols, int max_cell_qnt, float profit_margin) {
     vm_slot_t* slots = malloc(sizeof(vm_slot_t) * rows * cols);
     vm_state_t vm;
@@ -165,7 +183,7 @@ vm_state_t vm_init_rand(int rows, int cols, int max_cell_qnt, float profit_margi
     vm.profit_margin = profit_margin;
     
     srand(time(NULL));
-    vm_fill(&vm);
+    vm_fill_rand(&vm);
     return vm;
 }
 
@@ -186,6 +204,14 @@ void vm_slot_set_qnt(vm_state_t* vm, int slot_idx, int qnt) {
         if (vm->slot[slot_idx].qnt > vm->max_cell_qnt)
             vm->slot[slot_idx].qnt = vm->max_cell_qnt;
     }
+}
+
+void vm_free(vm_state_t* vm) {
+    if (!vm) return;
+    
+    if (vm->slot && !vm->is_static) 
+        free(vm->slot);
+    *vm = (vm_state_t){0};
 }
 
 #endif // VM_IMPLEMENTATION
