@@ -3,14 +3,15 @@
 #include "./config.h"
 
 int main() {
-    vm_t vm = vm_init_rand(
+    vm_t vm = vm_init(
         VM_ROWS, VM_COLS,
         VM_MAX_CELL_QNT,
         g_StockProducts,
-        ARR_SIZE(g_StockProducts)
+        ARR_SIZE(g_StockProducts), 
+        NULL
     );
 
-    // vm_print_slots(&vm, -1);
+    vm_load_slots(&vm, "./res/slots.bin");
     vm_free(&vm);
     return 0;
 }

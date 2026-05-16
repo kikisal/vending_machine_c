@@ -72,7 +72,9 @@ VM_API void         vm_slot_update_product_price(vm_t* vm, size_t prod_id);
 VM_API void         vm_product_set_margin(vm_t* vm, const char* display_name, float margin);
 VM_API void         vm_product_set_unitcost(vm_t* vm, const char* display_name, float cost);
 VM_API int          vm_load_slots_from_memory(vm_t* vm, vm_slot_t* slots, size_t count);
+VM_API void         vm_store_slots(vm_t* vm, const char* fp);
 VM_API void         vm_bake_slots(vm_t* vm, const char* fp);
+
 
 static void         vm__fwrite_str(const char* str, FILE* fh);
 
@@ -216,8 +218,10 @@ void vm_slot_set_qnt(vm_t* vm, int slot_idx, int qnt) {
 void vm_free(vm_t* vm) {
     if (!vm) return;
     
-    if (vm->slot && !vm->is_static) 
+    if (vm->slot && !vm->is_static) {
         free(vm->slot);
+    }
+    
     *vm = (vm_t){0};
 }
 
@@ -270,6 +274,13 @@ static void vm__fwrite_str(const char* str, FILE* fh) {
     fwrite(str, 1, strlen(str), fh);
 }
 
+void vm_store_slots(vm_t* vm, const char* fp) {
+    FILE* fh = fopen(fp, "wb");
+    if (!fh) return;
+    fwrite(vm->slot, sizeof(vm->slot[0]), vm->slot_count, fh);
+    fclose(fh);
+}
+
 void vm_bake_slots(vm_t* vm, const char* fp) {
     FILE* fh = fopen(fp, "w");
     if (!fh) return;
@@ -283,6 +294,35 @@ void vm_bake_slots(vm_t* vm, const char* fp) {
         vm__fwrite_str(tmp_buff, fh);
     }
     vm__fwrite_str("};\n", fh);
+    fclose(fh);
+}
+
+void vm_load_slots(vm_t* vm, const char* fp) {
+    FILE* fh = fopen(fp, "rb");
+    if (!fh) return;
+    size_t size;
+
+    fseek(fh, 0, SEEK_END);
+    size = ftell(fh);
+    fseek(fh, 0, SEEK_SET);
+
+    if (size % sizeof(vm->slot[0]) != 0){
+        printf("invalid slot bin file.\n");
+        goto close;
+    }
+
+    size_t slot_count = size / sizeof(vm->slot[0]);
+    
+#if PLATFORM == PLATFORM_OS
+    if (vm->slot && !vm->is_static) {
+        free(vm->slot);
+    }
+#endif
+    vm->slot       = malloc(slot_count * sizeof(vm->slot[0]));
+    vm->slot_count = slot_count;
+
+    fread(vm->slot, sizeof(vm->slot[0]), slot_count, fh);
+close:
     fclose(fh);
 }
 
