@@ -30,12 +30,17 @@ typedef int vm_buy_err_t;
 #define VM_BUY_EMPTY_SLOT      -2
 #define VM_BUY_NOT_ENOUGH_CASH -3
 
+typedef size_t prod_id_t;
+
+
+// TODO: Generational Indexes.
 typedef struct product_st {
+    size_t      prod_id;
     const char* name;
     // used by the graphics library to fetch texture
     const char* display_name;
-    float unit_cost; // in cents
-    float profit_margin;
+    float       unit_cost; // in cents
+    float       profit_margin;
 } product_t;
 
 typedef struct vm_slot_st {
@@ -44,37 +49,56 @@ typedef struct vm_slot_st {
     float price;
 } vm_slot_t;
 
-typedef struct vm_st {
-    vm_slot_t* slot;
-    int        slot_count;
-    int        rows;
-    int        cols;
-    product_t* products;
-    size_t     product_count;
+typedef enum vm_product_storage_enum {
+    VM_PRODUCT_STATIC_STORAGE,
+    VM_PRODUCT_DYNAMIC_STORAGE,
+} vm_product_storage_t;
 
-    int        max_cell_qnt;
-    bool       is_static;
+typedef struct product_list_st {
+    product_t*           data; 
+    size_t               capacity;
+    size_t               count;
+    // unique id for products. 
+    size_t               instance_id;
+    vm_product_storage_t storage;
+} product_list_t;
+
+typedef struct vm_st {
+    vm_slot_t*     slot;
+    int            slot_count;
+    int            rows;
+    product_list_t product_list;
+    int            cols;
+    int            max_cell_qnt;
+    bool           is_static;
 } vm_t;
 
 #define VM_API extern
 
-VM_API vm_t         vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count);
-VM_API void         vm_fill_rand(vm_t* vm);
-VM_API vm_t         vm_init(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count, vm_slot_t* static_storage);
-VM_API void         vm_print_slots(vm_t* vm, int limit);
-VM_API vm_buy_err_t vm_buy(vm_t* vm, int slot_idx, float cash, float* change);
-VM_API const char*  vm_buy_result(vm_buy_err_t err);
-VM_API void         vm_restock(vm_t* vm, int slot_idx);
-VM_API void         vm_slot_set_qnt(vm_t* vm, int slot_idx, int qnt);
-VM_API void         vm_free(vm_t* vm);
-VM_API size_t       vm_indexof_product(vm_t* vm, const char* display_name);
-VM_API void         vm_slot_update_product_price(vm_t* vm, size_t prod_id);
-VM_API void         vm_product_set_margin(vm_t* vm, const char* display_name, float margin);
-VM_API void         vm_product_set_unitcost(vm_t* vm, const char* display_name, float cost);
-VM_API int          vm_load_slots_from_memory(vm_t* vm, vm_slot_t* slots, size_t count);
-VM_API void         vm_store_slots(vm_t* vm, const char* fp);
-VM_API void         vm_bake_slots(vm_t* vm, const char* fp);
-
+VM_API vm_t           vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count);
+VM_API void           vm_fill_rand(vm_t* vm);
+VM_API vm_t           vm_init(int rows, int cols, int max_cell_qnt, product_list_t product_list, vm_slot_t* static_storage);
+VM_API void           vm_print_slots(vm_t* vm, int limit);
+VM_API vm_buy_err_t   vm_buy(vm_t* vm, int slot_idx, float cash, float* change);
+VM_API const char*    vm_buy_result(vm_buy_err_t err);
+VM_API void           vm_restock(vm_t* vm, int slot_idx);
+VM_API void           vm_slot_set_qnt(vm_t* vm, int slot_idx, int qnt);
+VM_API void           vm_free(vm_t* vm);
+VM_API size_t         vm_indexof_product(vm_t* vm, const char* display_name);
+VM_API product_t*     vm_find_product(vm_t* vm, size_t prod_id);
+VM_API void           vm_slot_update_product_price(vm_t* vm, product_t* p);
+VM_API void           vm_product_set_margin(vm_t* vm, const char* display_name, float margin);
+VM_API void           vm_product_set_unitcost(vm_t* vm, const char* display_name, float cost);
+VM_API int            vm_load_slots_from_memory(vm_t* vm, vm_slot_t* slots, size_t count);
+VM_API void           vm_store_slots(vm_t* vm, const char* fp);
+VM_API void           vm_bake_slots(vm_t* vm, const char* fp);
+VM_API void           vm_load_slots(vm_t* vm, const char* fp);
+VM_API bool           vm_products_contains(vm_t* vm, size_t prod_id);
+VM_API void           vm_sync_slots(vm_t* vm);
+VM_API void           vm_remove_product(vm_t* vm, prod_id_t id);
+VM_API void           vm_relocate_product_ids(vm_t* vm);
+VM_API product_t*     vm_alloc_product(vm_t* vm);
+VM_API product_list_t vm_load_products_from_memory(product_t* products, size_t count, vm_product_storage_t storage, size_t iid);
 
 static void         vm__fwrite_str(const char* str, FILE* fh);
 
@@ -101,15 +125,16 @@ static product_t g_DefaultProducts[] = {
 };
 
 void vm_fill_rand(vm_t* vm) {
-    for (int i = 0; i < vm->rows; ++i) {
-        for (int j = 0; j < vm->cols; ++j) {
-            int p_idx = rand() % vm->product_count;
-            float margin = vm->products[p_idx].profit_margin;
-            vm->slot[i*vm->cols + j].prod_id = p_idx;
-            vm->slot[i*vm->cols + j].qnt     = rand() % (vm->max_cell_qnt) + 1;
-            vm->slot[i*vm->cols + j].price   = (vm->products[p_idx].unit_cost / 100.0f) * (1 + margin);
-        }
-    }
+    (void) vm;
+    // for (int i = 0; i < vm->rows; ++i) {
+    //     for (int j = 0; j < vm->cols; ++j) {
+    //         int p_idx = rand() % vm->product_count;
+    //         float margin = vm->products[p_idx].profit_margin;
+    //         vm->slot[i*vm->cols + j].prod_id = p_idx;
+    //         vm->slot[i*vm->cols + j].qnt     = rand() % (vm->max_cell_qnt) + 1;
+    //         vm->slot[i*vm->cols + j].price   = (vm->products[p_idx].unit_cost / 100.0f) * (1 + margin);
+    //     }
+    // }
 }
 
 void vm_print_slots(vm_t* vm, int limit) {
@@ -169,14 +194,16 @@ const char* vm_buy_result(vm_buy_err_t err) {
     }
 }
 
-vm_t vm_init(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count, vm_slot_t* static_storage) {
+vm_t vm_init(int rows, int cols, int max_cell_qnt, product_list_t product_list, vm_slot_t* static_storage) {
     vm_t vm = {0};
-    vm.rows          = rows;
-    vm.cols          = cols;
-    vm.max_cell_qnt  = max_cell_qnt;
-    vm.slot_count    = rows * cols;
-    vm.products      = products != NULL ? products : g_DefaultProducts;
-    vm.product_count = products != NULL ? product_count : ARR_SIZE(g_DefaultProducts);
+    vm.rows             = rows;
+    vm.cols             = cols;
+    vm.max_cell_qnt     = max_cell_qnt;
+    vm.slot_count       = rows * cols;
+    vm.product_list     = product_list;
+
+    // TODO: Figure out this instance id for already existing products.
+    
 #if PLATFORM == PLATFORM_OS
     (void) static_storage;
     vm.slot = malloc(vm.slot_count * sizeof(vm.slot[0]));
@@ -190,10 +217,11 @@ vm_t vm_init(int rows, int cols, int max_cell_qnt, product_t* products, size_t p
 }
 
 vm_t vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count) {
-    vm_t vm = vm_init(rows, cols, max_cell_qnt, products, product_count, NULL);
-    srand(time(NULL));
-    vm_fill_rand(&vm);
-    return vm;
+    // vm_t vm = vm_init(rows, cols, max_cell_qnt, products, product_count, NULL);
+    // srand(time(NULL));
+    // vm_fill_rand(&vm);
+    // return vm;
+    return (vm_t) {0};
 }
 
 void vm_restock(vm_t* vm, int slot_idx) {
@@ -225,10 +253,16 @@ void vm_free(vm_t* vm) {
     *vm = (vm_t){0};
 }
 
+bool vm_product_is_none(product_t* p) {
+    return p->prod_id == -1;
+}
+
 size_t vm_indexof_product(vm_t* vm, const char* display_name) {
     size_t idx = -1;
-    for (int i = 0; i < vm->product_count; ++i) {
-        if (strncmp(vm->products[i].display_name, display_name, strlen(display_name)) == 0) {
+    for (int i = 0; i < vm->product_list.count; ++i) {
+        if (vm_product_is_none(&vm->product_list.data[i])) continue;
+
+        if (strncmp(vm->product_list.data[i].display_name, display_name, strlen(display_name)) == 0) {
             idx = i;
             break;
         }
@@ -237,11 +271,23 @@ size_t vm_indexof_product(vm_t* vm, const char* display_name) {
     return idx;
 }
 
-void vm_slot_update_product_price(vm_t* vm, size_t prod_id) {
+product_t* vm_find_product(vm_t* vm, size_t prod_id) {
+    if (prod_id < 0) return NULL;
+
+    for (int i = 0; i < vm->product_list.count; ++i) {
+        if (vm->product_list.data[i].prod_id == prod_id)
+            return vm->product_list.data + i;
+    }
+
+    return NULL;
+}
+
+void vm_slot_update_product_price(vm_t* vm, product_t* p) {
+    if (!p) return;
+
     for (int i = 0; i < vm->slot_count; ++i) {
-        if (vm->slot[i].prod_id == prod_id) {
-            product_t p = vm->products[prod_id];
-            vm->slot[i].price   = (p.unit_cost / 100.0f) * (1 + p.profit_margin);
+        if (vm->slot[i].prod_id == p->prod_id) {
+            vm->slot[i].price   = (p->unit_cost / 100.0f) * (1 + p->profit_margin);
         }
     }
 }
@@ -250,16 +296,16 @@ void vm_product_set_unitcost(vm_t* vm, const char* display_name, float cost) {
     size_t prd_idx = vm_indexof_product(vm, display_name);
     if (prd_idx < 0) return;
 
-    vm->products[prd_idx].unit_cost = cost;
-    vm_slot_update_product_price(vm, prd_idx);
+    vm->product_list.data[prd_idx].unit_cost = cost;
+    vm_slot_update_product_price(vm, &vm->product_list.data[prd_idx]);
 }
 
 void vm_product_set_margin(vm_t* vm, const char* display_name, float margin) {
     size_t prd_idx = vm_indexof_product(vm, display_name);
     if (prd_idx < 0) return;
 
-    vm->products[prd_idx].profit_margin = margin;
-    vm_slot_update_product_price(vm, prd_idx);
+    vm->product_list.data[prd_idx].profit_margin = margin;
+    vm_slot_update_product_price(vm, &vm->product_list.data[prd_idx]);
 }
 
 int vm_load_slots_from_memory(vm_t* vm, vm_slot_t* slots, size_t count) {
@@ -324,6 +370,116 @@ void vm_load_slots(vm_t* vm, const char* fp) {
     fread(vm->slot, sizeof(vm->slot[0]), slot_count, fh);
 close:
     fclose(fh);
+}
+
+bool vm_products_contains(vm_t* vm, size_t prod_id) {
+    if (prod_id < 0) return false;
+
+    for (int i = 0; i < vm->product_list.count; ++i) {
+        if (vm->product_list.data[i].prod_id == prod_id)
+            return true;
+    }
+
+    return false;
+}
+
+void vm_sync_slots(vm_t* vm) {
+    for (int i = 0; i < vm->slot_count; ++i) {
+        size_t slot_prod_id = vm->slot[i].prod_id;
+        if (!vm_products_contains(vm, slot_prod_id)) {
+            // mark slot as invalid.
+            vm->slot[i].prod_id = -1;
+            vm->slot[i].qnt     = 0;
+            vm->slot[i].price   = 0.0f;   
+        }
+    }
+}
+
+void vm_remove_product(vm_t* vm, prod_id_t id) {
+    if (id < 0) return;
+
+    for (int i = 0; i < vm->product_list.count; ++i) {
+        product_t* p = &vm->product_list.data[i]; 
+        if (p->prod_id == id) p->prod_id = -1;
+    }
+}
+
+product_t* vm_alloc_product(vm_t* vm) {
+    // first find vacant slot.
+    product_list_t* pl = &vm->product_list;
+
+    for (int i = 0; i < pl->count; ++i) {
+        if (pl->data[i].prod_id == -1) {
+            pl->data[i].prod_id = vm->product_list.instance_id++;
+            return pl->data + i;
+        }
+    }
+
+    if (pl->storage == VM_PRODUCT_STATIC_STORAGE)
+        return NULL;
+
+    product_t* old_prods = pl->data;
+    bool can_alloc = false;
+
+    if (pl->count >= pl->capacity) {
+        size_t cap = pl->capacity * 2;
+        pl->data = realloc(pl->data, cap);
+        if (!pl->data) {
+            pl->data = old_prods;
+        } else {
+            pl->capacity = cap;
+            can_alloc = true;
+        }
+    }
+
+    if (!can_alloc) return NULL;
+
+    pl->data[pl->count++] = (product_t) {
+        .prod_id = pl->instance_id++
+    };
+
+    return pl->data + (pl->count - 1);
+}
+
+// assigns new instance ids to all products.
+void vm_relocate_product_ids(vm_t* vm) {
+    size_t inst_id = 0;
+    product_list_t* pl = &vm->product_list;
+    for (int i = 0; i < pl->count; ++i) {
+        size_t old_prod_id = pl->data[i].prod_id;
+        size_t new_prod_id = inst_id++;
+
+        pl->data[i].prod_id = new_prod_id;
+
+        for (int j = 0; j < vm->slot_count; ++j) {
+            if (vm->slot[j].prod_id == old_prod_id) {
+                vm->slot[j].prod_id = new_prod_id;
+            }
+        }
+    }
+
+    pl->instance_id = inst_id;
+}
+
+product_list_t vm_load_products_from_memory(product_t* products, size_t count, vm_product_storage_t storage, size_t iid) {
+    product_list_t pl = {0};
+
+    if (!products) 
+        return pl;
+
+    if (iid < 0) {
+        iid = 0;
+        for (int i = 0; i < count; ++i) {
+            products[i].prod_id = iid++;
+        }
+    }
+
+    pl.capacity    = pl.count = count;
+    pl.data        = products;
+    pl.storage     = storage;
+    pl.instance_id = iid;
+
+    return pl;
 }
 
 #endif // VM_IMPLEMENTATION
