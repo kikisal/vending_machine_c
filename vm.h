@@ -420,7 +420,10 @@ void vm_remove_product(vm_t* vm, prod_id_t id) {
 
     for (int i = 0; i < vm->product_list.count; ++i) {
         product_t* p = &vm->product_list.data[i]; 
-        if (p->prod_id == id) p->prod_id = -1;
+        if (p->prod_id == id) {
+            p->prod_id = -1;
+            break;
+        }
     }
 }
 
