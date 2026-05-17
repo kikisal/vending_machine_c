@@ -75,7 +75,7 @@ typedef struct vm_st {
 
 #define VM_API extern
 
-VM_API vm_t           vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count);
+VM_API vm_t           vm_init_rand(int rows, int cols, int max_cell_qnt, product_list_t pl);
 VM_API void           vm_fill_rand(vm_t* vm);
 VM_API vm_t           vm_init(int rows, int cols, int max_cell_qnt, product_list_t product_list, vm_slot_t* static_storage);
 VM_API void           vm_print_slots(vm_t* vm, int limit);
@@ -125,16 +125,37 @@ static product_t g_DefaultProducts[] = {
 };
 
 void vm_fill_rand(vm_t* vm) {
-    (void) vm;
-    // for (int i = 0; i < vm->rows; ++i) {
-    //     for (int j = 0; j < vm->cols; ++j) {
-    //         int p_idx = rand() % vm->product_count;
-    //         float margin = vm->products[p_idx].profit_margin;
-    //         vm->slot[i*vm->cols + j].prod_id = p_idx;
-    //         vm->slot[i*vm->cols + j].qnt     = rand() % (vm->max_cell_qnt) + 1;
-    //         vm->slot[i*vm->cols + j].price   = (vm->products[p_idx].unit_cost / 100.0f) * (1 + margin);
-    //     }
-    // }
+
+    bool has_available_prods = false;
+    for (int i = 0; i < vm->product_list.count; ++i) {        
+        if (vm->product_list.data[i].prod_id != -1) {
+            has_available_prods = true;
+            break;
+        }
+    }
+
+    if (!has_available_prods)
+        return;
+
+    for (int i = 0; i < vm->rows; ++i) {
+        for (int j = 0; j < vm->cols; ++j) {
+            int p_idx = -1;
+            do {
+                p_idx = rand() % vm->product_list.count;
+            } while(vm->product_list.data[p_idx].prod_id == -1);
+
+            if (p_idx == -1) {
+                vm->slot[i*vm->cols + j].prod_id = -1;
+                vm->slot[i*vm->cols + j].qnt     = 0;
+                vm->slot[i*vm->cols + j].price   = 0.0f;
+            } else {
+                float margin = vm->product_list.data[p_idx].profit_margin;
+                vm->slot[i*vm->cols + j].prod_id = p_idx;
+                vm->slot[i*vm->cols + j].qnt     = rand() % (vm->max_cell_qnt) + 1;
+                vm->slot[i*vm->cols + j].price   = (vm->product_list.data[p_idx].unit_cost / 100.0f) * (1 + margin);
+            }
+        }
+    }
 }
 
 void vm_print_slots(vm_t* vm, int limit) {
@@ -216,12 +237,11 @@ vm_t vm_init(int rows, int cols, int max_cell_qnt, product_list_t product_list, 
     return vm;
 }
 
-vm_t vm_init_rand(int rows, int cols, int max_cell_qnt, product_t* products, size_t product_count) {
-    // vm_t vm = vm_init(rows, cols, max_cell_qnt, products, product_count, NULL);
-    // srand(time(NULL));
-    // vm_fill_rand(&vm);
-    // return vm;
-    return (vm_t) {0};
+vm_t vm_init_rand(int rows, int cols, int max_cell_qnt, product_list_t product_list) {
+    vm_t vm = vm_init(rows, cols, max_cell_qnt, product_list, NULL);
+    srand(time(NULL));
+    vm_fill_rand(&vm);
+    return vm;
 }
 
 void vm_restock(vm_t* vm, int slot_idx) {
