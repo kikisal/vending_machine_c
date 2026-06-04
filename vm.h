@@ -94,7 +94,7 @@ VM_API void           vm_store_slots(vm_t* vm, const char* fp);
 VM_API void           vm_bake_slots(vm_t* vm, const char* fp);
 VM_API void           vm_load_slots(vm_t* vm, const char* fp);
 VM_API bool           vm_products_contains(vm_t* vm, size_t prod_id);
-VM_API void           vm_sync_slots(vm_t* vm);
+VM_API void           vm_sync_slots_with_products(vm_t* vm);
 VM_API void           vm_remove_product(vm_t* vm, prod_id_t id);
 VM_API void           vm_relocate_product_ids(vm_t* vm);
 VM_API product_t*     vm_alloc_product(vm_t* vm);
@@ -403,7 +403,7 @@ bool vm_products_contains(vm_t* vm, size_t prod_id) {
     return false;
 }
 
-void vm_sync_slots(vm_t* vm) {
+void vm_sync_slots_with_products(vm_t* vm) {
     for (int i = 0; i < vm->slot_count; ++i) {
         size_t slot_prod_id = vm->slot[i].prod_id;
         if (!vm_products_contains(vm, slot_prod_id)) {
